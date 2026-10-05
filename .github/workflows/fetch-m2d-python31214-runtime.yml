@@ -1,0 +1,31 @@
+name: fetch-m2d-python31214-runtime
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fetch-m2d-python31214-runtime.yml"
+  workflow_dispatch:
+
+jobs:
+  fetch-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact standalone CPython
+        run: |
+          set -euo pipefail
+          url='https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.12.14%2B20260814-x86_64-unknown-linux-gnu-pgo%2Blto-full.tar.zst'
+          file='cpython-3.12.14+20260814-x86_64-unknown-linux-gnu-pgo+lto-full.tar.zst'
+          curl -L --fail --retry 3 -o "$file" "$url"
+          echo '7364cf93ac790aaecc93dea68f3581659d6c0f2056dc6c78f865e86a8a41ffea  '"$file" | sha256sum -c -
+          sha256sum "$file" > PYTHON_RUNTIME_SHA256.txt
+          ls -lh "$file"
+      - name: Upload exact runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2d-python31214-runtime
+          path: |
+            cpython-3.12.14+20260814-x86_64-unknown-linux-gnu-pgo+lto-full.tar.zst
+            PYTHON_RUNTIME_SHA256.txt
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
