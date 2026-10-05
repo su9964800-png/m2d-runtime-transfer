@@ -54,11 +54,11 @@ jobs:
       - name: Download exact PyPI wheels
         run: |
           mkdir -p wheelhouse
-          python -m pip download             --only-binary=:all:             --no-deps             --dest wheelhouse             -r runtime_requirements.txt
+          python -m pip download --only-binary=:all: --no-deps --dest wheelhouse -r runtime_requirements.txt
 
       - name: Download exact PyTorch CPU wheel
         run: |
-          python -m pip download             --only-binary=:all:             --no-deps             --dest wheelhouse             --index-url https://download.pytorch.org/whl/cpu             "torch==2.10.0+cpu"
+          python -m pip download --only-binary=:all: --no-deps --dest wheelhouse --index-url https://download.pytorch.org/whl/cpu "torch==2.10.0+cpu"
 
       - name: Audit wheelhouse
         run: |
@@ -71,17 +71,46 @@ jobs:
           echo >> WHEELHOUSE_AUDIT.txt
           echo "[FILES]" >> WHEELHOUSE_AUDIT.txt
           ls -lh wheelhouse | sort >> WHEELHOUSE_AUDIT.txt
+          echo >> WHEELHOUSE_AUDIT.txt
+          echo "[FROZEN_REQUIREMENTS]" >> WHEELHOUSE_AUDIT.txt
           cat runtime_requirements.txt >> WHEELHOUSE_AUDIT.txt
           cat WHEELHOUSE_AUDIT.txt
 
-      - name: Upload persistent wheelhouse
+      - name: Split artifacts below connector limit
+        run: |
+          mkdir -p artifact_nccl artifact_torch_xgb artifact_rest
+          mv wheelhouse/nvidia_nccl_cu12-*.whl artifact_nccl/
+          mv wheelhouse/torch-*.whl artifact_torch_xgb/
+          mv wheelhouse/xgboost-*.whl artifact_torch_xgb/
+          mv wheelhouse/*.whl artifact_rest/
+          for d in artifact_nccl artifact_torch_xgb artifact_rest; do
+            cp runtime_requirements.txt WHEELHOUSE_AUDIT.txt "$d"/
+            echo "$d bytes=$(du -sb "$d" | cut -f1)"
+          done
+
+      - name: Upload NCCL artifact
         uses: actions/upload-artifact@v4
         with:
-          name: m2d-python31214-wheelhouse
-          path: |
-            wheelhouse/
-            runtime_requirements.txt
-            WHEELHOUSE_AUDIT.txt
+          name: m2d-python31214-wheelhouse-nccl
+          path: artifact_nccl/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload Torch-XGBoost artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2d-python31214-wheelhouse-torch-xgb
+          path: artifact_torch_xgb/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload remaining artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2d-python31214-wheelhouse-rest
+          path: artifact_rest/
           compression-level: 0
           retention-days: 7
           if-no-files-found: error
